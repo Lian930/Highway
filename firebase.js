@@ -2,7 +2,7 @@ const admin = require("firebase-admin");
 const fs = require("fs");
 
 const raw = fs.readFileSync("serviceAccount.json", "utf-8");
-const json = JSON.parse(raw.replace(/\\n/g, '\n'));
+const json = require("./serviceAccount.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(json),

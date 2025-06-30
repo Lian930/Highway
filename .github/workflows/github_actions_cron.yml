@@ -23,7 +23,8 @@ jobs:
 
       - name: Create Firebase service account key
         run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccount.json
+          printf "%s" "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccount.json
+
 
       - name: Run crawler
         run: node index.js

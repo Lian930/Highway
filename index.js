@@ -2,6 +2,10 @@ const puppeteer = require("puppeteer");
 const db = require("./firebase");
 const cron = require("node-cron");
 
+db.ref("accidents_test").push({ message: "Firebase連線測試", time: new Date().toISOString() })
+  .then(() => console.log("✅ Firebase測試寫入成功"))
+  .catch(e => console.error("❌ Firebase測試寫入失敗", e));
+
 function parseDateTime(dateStr, timeStr) {
   const [year, month, day] = dateStr.split("/").map(Number);
   const [hour, minute] = timeStr.split(":" ).map(Number);

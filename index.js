@@ -57,10 +57,16 @@ async function fetchAndWrite() {
   });
 
   const filtered = data.filter(d => d.類別 && d.類別 !== "其他");
+    console.log("抓到的資料數量：", filtered.length);
 
   for (const item of filtered) {
-    await db.ref("roadConditions").push(item);
-  }
+      try {
+        await db.ref("roadConditions").push(item);
+        console.log("✅ 成功寫入一筆：", item.地點 || item.說明);
+      } catch (e) {
+        console.error("❌ 寫入失敗：", item, e);
+      }
+    }
 
   console.log("✅ 寫入 Firebase 成功 @", new Date().toLocaleTimeString());
   await browser.close();

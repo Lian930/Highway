@@ -24,6 +24,7 @@ async function cleanOldData() {
 }
 
 async function fetchAndWrite() {
+  try {
   const browser = await puppeteer.launch({
   headless: "new",
   args: ['--no-sandbox', '--disable-setuid-sandbox']

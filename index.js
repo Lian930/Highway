@@ -25,14 +25,16 @@ async function cleanOldData() {
 
 async function fetchAndWrite() {
   const browser = await puppeteer.launch({
-  headless: true,
+  headless: "new",
   args: ['--no-sandbox', '--disable-setuid-sandbox']
 });
   const page = await browser.newPage();
-
+  
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36');
   await page.goto("https://www.pbs.gov.tw/cht/index.php?code=list&ids=163", {
-    waitUntil: "networkidle2"
-  });
+  waitUntil: "networkidle2",
+  timeout: 90000 // 90 秒
+});
 
   await page.waitForSelector("#JsonArrayInput tr");
 

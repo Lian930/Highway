@@ -65,6 +65,11 @@ async function fetchAndWrite() {
 
   // 執行刪除 24 小時前資料
   await cleanOldData();
+}catch (e) {
+    console.error("❌ 爬蟲發生錯誤：", e.message || e);
+  } finally {
+    if (browser) await browser.close();
+  }
 }
 
 // 🕒 每5分鐘自動執行一次

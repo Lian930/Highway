@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
 const fs = require("fs");
-console.log("serviceAccount env 前 100 字:", process.env.FIREBASE_SERVICE_ACCOUNT?.slice(0, 100));
+console.log("所有 env 變數：", Object.keys(process.env));
 
 const raw = fs.readFileSync("serviceAccount.json", "utf-8");
 const json = require("./serviceAccount.json");

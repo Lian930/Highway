@@ -22,8 +22,8 @@ jobs:
         run: npm install
 
       - name: Create Firebase service account key
-        run: |
-          printf "%s" "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccount.json
+        run: printf "%s" "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccount.json
+
 
 
       - name: Run crawler

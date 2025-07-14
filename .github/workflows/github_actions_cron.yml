@@ -1,30 +1,52 @@
-name: Run Puppeteer Crawler
+name: Fetch Highway Data and Push to Firebase
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # 每 5 分鐘執行一次
-  workflow_dispatch:        # 可手動觸發
+    - cron: "*/15 * * * *"  # 每 15 分鐘執行一次
+  workflow_dispatch:  # 也可以手動觸發
 
 jobs:
-  run-script:
+  fetch-and-push:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install firebase-admin axios
 
-      - name: Create Firebase service account key
-        run: printf "%s" "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccount.json
+      - name: Fetch data and upload to Firebase
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > service-account.json
 
+          node <<EOF
+          const axios = require('axios');
+          const admin = require('firebase-admin');
+          const serviceAccount = require('./service-account.json');
 
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: process.env.FIREBASE_DB_URL
+          });
 
-      - name: Run crawler
-        run: node index.js
+          const db = admin.database();
+          const ref = db.ref("highway");
+
+          async function main() {
+            const res = await axios.get('https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/Freeway?$format=JSON');
+            const data = res.data;
+
+            await ref.set(data);
+            console.log("✅ 上傳成功，共 " + data.length + " 筆資料");
+          }
+
+          main().catch(console.error);
+          EOF

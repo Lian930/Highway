@@ -21,8 +21,14 @@ async function fetchAndPush(path, url, token) {
     const { data } = await axios.get(url, {
       headers: { Authorization: `Bearer ${token}` }
     });
+
     const ref = db.ref(path);
     await ref.set(data);
+
+    // 👉 更新 lastUpdate 時間戳記
+    const timeRef = db.ref(`meta/${path}/lastUpdate`);
+    await timeRef.set(new Date().toISOString());
+
     console.log(`✅ ${path} 上傳成功，共 ${Array.isArray(data) ? data.length : 0} 筆`);
   } catch (e) {
     console.error(`❌ ${path} 上傳失敗：`, e.message);

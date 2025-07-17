@@ -1,17 +1,15 @@
-name: Fetch Highway TDX Data and Push to Firebase
+name: Fetch TDX + Push to Firebase
 
 on:
   schedule:
     - cron: "*/10 * * * *"  # 每 10 分鐘
-  workflow_dispatch:  # 可手動執行
+  workflow_dispatch:
 
 jobs:
   fetch-and-push:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -21,10 +19,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Decode service account
+      - name: Decode Firebase Key
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > serviceAccount.json
 
       - name: Run TDX Fetcher
-        run: node index.js
+        env:
+          TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+          TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+        run: node tdx_fetcher.js

@@ -1,6 +1,11 @@
 const axios = require("axios");
 const db = require("./firebase");
 
+function getTaiwanTime() {
+  const taiwanTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  return taiwanTime.toISOString();
+}
+
 async function getAccessToken() {
   const params = new URLSearchParams();
   params.append("grant_type", "client_credentials");
@@ -16,22 +21,28 @@ async function getAccessToken() {
   return res.data.access_token;
 }
 
-async function fetchAndPush(path, url, token) {
+async function fetchAndPush(name, url, token) {
   try {
     const { data } = await axios.get(url, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const ref = db.ref(path);
-    await ref.set(data);
+    const timestamp = getTaiwanTime();
+    const processedData = Array.isArray(data)
+      ? data.map(d => ({ ...d, timestamp }))
+      : { ...data, timestamp };
 
-    // 👉 更新 lastUpdate 時間戳記
-    const timeRef = db.ref(`meta/${path}/lastUpdate`);
-    await timeRef.set(new Date().toISOString());
+    // ✅ 寫入到 /realtime/{name}
+    const ref = db.ref(`realtime/${name}`);
+    await ref.set(processedData);
 
-    console.log(`✅ ${path} 上傳成功，共 ${Array.isArray(data) ? data.length : 0} 筆`);
+    // ✅ 寫入到 /meta/{name}/lastUpdate
+    const metaRef = db.ref(`meta/${name}/lastUpdate`);
+    await metaRef.set(timestamp);
+
+    console.log(`✅ ${name} 上傳成功，共 ${Array.isArray(data) ? data.length : 0} 筆`);
   } catch (e) {
-    console.error(`❌ ${path} 上傳失敗：`, e.message);
+    console.error(`❌ ${name} 上傳失敗：`, e.message);
   }
 }
 

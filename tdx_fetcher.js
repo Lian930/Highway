@@ -32,26 +32,36 @@ async function fetchAndPush(name, url, token) {
       ? data.map(d => ({ ...d, timestamp }))
       : { ...data, timestamp };
 
-    // ✅ 寫入到 /realtime/{name}
     const ref = db.ref(`realtime/${name}`);
     await ref.set(processedData);
 
-    // ✅ 寫入到 /meta/{name}/lastUpdate
-    const metaRef = db.ref(`meta/${name}/lastUpdate`);
-    await metaRef.set(timestamp);
+    const metaRef = db.ref(`meta/${name}`);
+    await metaRef.set({
+      lastUpdate: timestamp,
+      count: Array.isArray(data) ? data.length : 1
+    });
 
     console.log(`✅ ${name} 上傳成功，共 ${Array.isArray(data) ? data.length : 0} 筆`);
+    return true;
   } catch (e) {
     console.error(`❌ ${name} 上傳失敗：`, e.message);
+    return false;
   }
 }
 
 (async () => {
   const token = await getAccessToken();
-  await Promise.all([
+  const success = await Promise.all([
     fetchAndPush("liveTraffic", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/Freeway?$format=JSON", token),
     fetchAndPush("events", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Event/Freeway?$format=JSON", token),
     fetchAndPush("speedCams", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/SpeedCam/Freeway?$format=JSON", token)
   ]);
+
+  const allSuccess = success.every(Boolean);
+  if (allSuccess) {
+    const globalRef = db.ref("meta/global/lastSuccessTime");
+    await globalRef.set(getTaiwanTime());
+  }
+
   console.log("✅ 所有資料上傳完成！");
 })();

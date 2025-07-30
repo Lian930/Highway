@@ -53,8 +53,9 @@ async function fetchAndPush(name, url, token) {
   const token = await getAccessToken();
   const success = await Promise.all([
     fetchAndPush("liveTraffic", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/Freeway?$format=JSON", token),
-    fetchAndPush("events", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Event/Freeway?$format=JSON", token),
-    fetchAndPush("speedCams", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/SpeedCam/Freeway?$format=JSON", token)
+    fetchAndPush("speedVD", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/VD/Freeway?$format=JSON", token),
+    fetchAndPush("congestion", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CongestionLevel/Freeway?$format=JSON", token),
+    fetchAndPush("news", "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/News/Freeway?$format=JSON", token)
   ]);
 
   const allSuccess = success.every(Boolean);

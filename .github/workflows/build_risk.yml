@@ -16,4 +16,4 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FB_SA_JSON }}
           FIREBASE_DB_URL: ${{ secrets.FB_DB_URL }}
-        run: node tools/build_risk_table.js
+        run: node build_risk_table.js

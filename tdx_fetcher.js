@@ -4,16 +4,17 @@
 
 const admin = require("firebase-admin");
 const axios = require("axios");
+const fs = require("fs");
 
-// ---- 讀取 service account（支援 JSON 直給或 base64）----
+// ---- 讀取 service account ----
 function readServiceAccount() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT is missing");
   try {
-    return JSON.parse(raw);                // 直接 JSON
+    return JSON.parse(raw); // 直接 JSON
   } catch {
     const decoded = Buffer.from(raw, "base64").toString("utf8");
-    return JSON.parse(decoded);            // base64 → JSON
+    return JSON.parse(decoded); // base64 → JSON
   }
 }
 
@@ -45,7 +46,7 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-// ---- 寫入原始資料 + meta（你原有結構的增強版）----
+// ---- 寫入原始資料 + meta ----
 function upsertRaw(name, payload) {
   const timestamp = taiwanIso();
   const processed = Array.isArray(payload)
@@ -60,20 +61,23 @@ function upsertRaw(name, payload) {
   ]);
 }
 
-// ---- 寫入標準化 Event / SpeedCam ----
+// ---- 寫入標準化 Event / SpeedCam / ShoulderOpen ----
 function upsertEvent(id, e) {
   return db.ref(`realtime/events/${id}`).set(e);
 }
 function upsertSpeedCam(id, s) {
   return db.ref(`static/speedCams/${id}`).set(s);
 }
+function upsertShoulderOpen(id, s) {
+  return db.ref(`realtime/shoulderOpen/${id}`).set(s);
+}
 
-// ---- 標準化工具：KM/方向 ----
+// ---- 標準化工具 ----
 function parseKm(x) {
   if (x == null) return NaN;
   if (typeof x === "number") return x;
   const s = String(x).trim().toUpperCase();
-  const m = s.match(/^(\d+)(?:K\+(\d+))?$/); // 例如 123K+500
+  const m = s.match(/^(\d+)(?:K\+(\d+))?$/);
   if (m) {
     const km = parseInt(m[1], 10);
     const plus = m[2] ? parseInt(m[2], 10) / 1000 : 0;
@@ -106,7 +110,7 @@ function toEvent(raw) {
   };
 }
 
-// ---- 取任意 TDX API ----
+// ---- TDX API fetch ----
 async function fetchTDX(url, token) {
   const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
   return data;
@@ -125,7 +129,7 @@ async function fetchTDX(url, token) {
       fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/News/Freeway?$format=JSON", token),
     ]);
 
-    // 2) 原樣 + timestamp 上傳至 /realtime/* 與 /meta/*
+    // 2) 上傳原始資料
     await Promise.all([
       upsertRaw("liveTraffic", liveTraffic),
       upsertRaw("speedVD", speedVD),
@@ -134,42 +138,51 @@ async function fetchTDX(url, token) {
     ]);
     console.log("✅ 原始資料上傳完成");
 
-    // 3) 從 news 轉標準化 Event → /realtime/events/{id}
+    // 3) 處理 news
     if (Array.isArray(news)) {
-      const tasks = news.map((item, idx) => {
+      const eventTasks = [];
+      const shoulderTasks = [];
+
+      news.forEach((item, idx) => {
+        // 標準事件
         const e = toEvent(item);
-        // 這裡用簡單 key；未來可改為雜湊（含時間/事件編號等）
         const key = `${e.direction}-${e.startKm ?? "na"}-${e.endKm ?? "na"}-${idx}`;
-        return upsertEvent(key, e);
+        eventTasks.push(upsertEvent(key, e));
+
+        // 路肩開放
+        if (item.Title && item.Title.includes("路肩")) {
+          const s = {
+            roadId: item.RoadID || "NA",
+            startKm: parseKm(item.StartKM),
+            endKm: parseKm(item.EndKM),
+            direction: normDir(item.Direction),
+            timeRange: `${item.PublishTime} ~ ${item.UpdateTime}`,
+            source: "NEWS"
+          };
+          shoulderTasks.push(upsertShoulderOpen(item.NewsID, s));
+        }
       });
-      await Promise.all(tasks);
-      console.log(`✅ 事件標準化完成，共 ${news.length} 筆（來源：News）`);
+
+      await Promise.all([...eventTasks, ...shoulderTasks]);
+      console.log(`✅ 事件標準化完成，共 ${eventTasks.length} 筆`);
+      console.log(`✅ 路肩開放上傳完成，共 ${shoulderTasks.length} 筆`);
     }
 
-    // 4) SpeedCam：若來源是 PBS 或自有清單，請在此整理後：
-    // await upsertSpeedCam(id, { km, limit, direction });
-    const fs = require("fs");
-
-  async function upsertAllSpeedCams(list) {
-    for (const cam of list) {
-      const km = Number(cam.km);
-      const limit = Number(cam.limit);
-      const direction = (cam.direction || "-").toUpperCase();
-      if (!Number.isFinite(km) || !Number.isFinite(limit)) continue; // 基本防呆
-      const id = `${direction}-${km.toFixed(3)}`; // 穩定ID（避免重複）
-      await upsertSpeedCam(id, { km, limit, direction });
+    // 4) SpeedCam
+    try {
+      const cams = JSON.parse(fs.readFileSync("cloud/speedcams.json", "utf8"));
+      for (const cam of cams) {
+        const km = Number(cam.km);
+        const limit = Number(cam.limit);
+        const direction = (cam.direction || "-").toUpperCase();
+        if (!Number.isFinite(km) || !Number.isFinite(limit)) continue;
+        const id = `${direction}-${km.toFixed(3)}`;
+        await upsertSpeedCam(id, { km, limit, direction });
+      }
+      console.log(`✅ SpeedCam 上傳完成，共 ${cams.length} 筆`);
+    } catch (e) {
+      console.warn("⚠️ SpeedCam 略過：", e.message);
     }
-  }
-  
-  // … news → Event 寫完之後：
-  try {
-    const cams = JSON.parse(fs.readFileSync("cloud/speedcams.json", "utf8"));
-    await upsertAllSpeedCams(cams);
-    console.log(`✅ SpeedCam 上傳完成，共 ${cams.length} 筆`);
-  } catch (e) {
-    console.warn("⚠️ SpeedCam 略過（找不到檔案或讀檔失敗）：", e.message);
-  }
-
 
     // 5) 全域成功時間
     await db.ref("meta/global/lastSuccessTime").set(taiwanIso());

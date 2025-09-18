@@ -1,19 +1,25 @@
-name: Build Risk Lookup
+name: Build Risk Table
+
 on:
-  schedule:
-    - cron: "5 * * * *"
-  workflow_dispatch:
+  workflow_dispatch: # 手動觸發，避免每天都跑
 
 jobs:
   build-risk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: "20" }
-      - run: npm i firebase-admin dayjs node-fetch@3
-      - name: Build risk table
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FB_SA_JSON }}
-          FIREBASE_DB_URL: ${{ secrets.FB_DB_URL }}
-        run: node build_risk_table.js
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run risk builder
+        run: npm run build-risk
+
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}

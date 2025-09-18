@@ -1,17 +1,16 @@
 {
-  "name": "pbs-fetcher",
+  "name": "tdx-fetcher",
   "version": "1.0.0",
-  "main": "pbs_to_firebase.js",
+  "description": "Fetch freeway realtime data from TDX and upload to Firebase",
+  "main": "tdx_fetcher.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node tdx_fetcher.js",
+    "build-risk": "node build_risk_table.js"
   },
-  "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "axios": "^1.10.0",
-    "cheerio": "^1.1.0",
     "firebase-admin": "^13.4.0"
   }
 }

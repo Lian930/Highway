@@ -190,8 +190,13 @@ async function getAccessToken() {
     // 5) meta
     await db.ref("meta/global/lastSuccessTime").set(taiwanIso());
     console.log("🎉 全流程完成");
+
+    // ---- 結束處理 ----
+    db.goOffline();
+    process.exit(0);
+
   } catch (e) {
     console.error("❌ Pipeline 失敗：", e);
-    process.exitCode = 1;
+    process.exit(1);
   }
 })();

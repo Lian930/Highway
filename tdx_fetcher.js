@@ -74,20 +74,6 @@ function upsertCongestion(id, c) {
   return db.ref(`realtime/congestion/${id}`).set(c);
 }
 
-// ---- 事件轉換 ----
-function toEvent(raw) {
-  const startKm = parseKm(raw.StartKM ?? raw.StartKm ?? raw.Start_KM ?? raw.Start);
-  const endKm = parseKm(raw.EndKM ?? raw.EndKm ?? raw.End_KM ?? raw.End ?? startKm);
-  return {
-    type: raw.Type || raw.EventType || "ACCIDENT",
-    startKm,
-    endKm,
-    direction: normDir(raw.Direction),
-    ttl: Date.now() + 10 * 60 * 1000,
-    source: raw.Source || "TDX",
-  };
-}
-
 // ---- 等級判斷 ----
 function calcLevel(speed) {
   if (speed >= 80) return 1;
@@ -116,51 +102,92 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+// ---- 1968 API ----
+async function fetch1968Incidents() {
+  const { data } = await axios.get(
+    "https://1968.freeway.gov.tw/api/getIncidentData?action=incident&area=A&freewayid=1&expresswayid=0"
+  );
+  return data.response || [];
+}
+
+// ---- web_list 解析 ----
+function parseWebList(str) {
+  if (!str) return { roadId: "NA", direction: "N", km: NaN };
+  // 範例: "國道3號南向119.1km"
+  const roadMatch = str.match(/國道(\d+)號/);
+  const dirMatch = str.match(/(北向|南向|東向|西向)/);
+  const kmMatch = str.match(/([\d.]+)\s*km/i);
+
+  let roadId = "NA";
+  if (roadMatch) roadId = "F" + roadMatch[1];
+  let direction = "N";
+  if (dirMatch) {
+    const d = dirMatch[1];
+    if (d.includes("北")) direction = "N";
+    else if (d.includes("南")) direction = "S";
+    else if (d.includes("東")) direction = "E";
+    else if (d.includes("西")) direction = "W";
+  }
+  const km = kmMatch ? parseFloat(kmMatch[1]) : NaN;
+  return { roadId, direction, km };
+}
+
+// ---- 事件轉換 ----
+function normalizeIncident(raw) {
+  const parsed = parseWebList(raw.web_list);
+  return {
+    incidentid: raw.incidentid,
+    web_list: raw.web_list,
+    roadId: parsed.roadId,
+    direction: parsed.direction,
+    km: parsed.km,
+    inc_type_name: raw.inc_type_name,
+    inc_name: raw.inc_name,
+    event_type: raw.event_type,
+    effectiveTime: raw.effectiveTime,
+    longitude: raw.longitude,
+    latitude: raw.latitude,
+    location_type: raw.location_type,
+    freewayid: raw.freewayid,
+    directionid: raw.directionid,
+    from_milepost: raw.from_milepost,
+    to_milepost: raw.to_milepost,
+    entry_exit: raw.entry_exit,
+    block_way: raw.block_way,
+    blocked_lanes: raw.blocked_lanes,
+    publishTime: raw.publishTime || raw.lastupdateTime
+  };
+}
+
 // ---- Main ----
 (async () => {
   try {
     const token = await getAccessToken();
 
-    // 1) 抓四組資料
-    const [liveTraffic, speedVD, congestionRules, news] = await Promise.all([
+    // 1) 抓四組資料 (前三個仍走 TDX, 第四個改抓 1968)
+    const [liveTraffic, speedVD, congestionRules, incidents] = await Promise.all([
       fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/Freeway?$format=JSON", token),
       fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/VD/Freeway?$format=JSON", token),
       fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CongestionLevel/Freeway?$format=JSON", token),
-      fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/Live/News/Freeway?$format=JSON", token),
+      fetch1968Incidents()
     ]);
 
-    // 2) 原始資料存檔
+    // 2) 存原始 (只保留前三個，事件不備份 raw)
     await Promise.all([
       upsertRaw("liveTraffic", liveTraffic),
       upsertRaw("speedVD", speedVD),
-      upsertRaw("congestion_rules", congestionRules), // 存原始規則表
-      upsertRaw("news", news),
+      upsertRaw("congestion_rules", congestionRules),
     ]);
     console.log("✅ 原始資料上傳完成");
 
-    // 3) News → events & shoulderOpen
-    if (Array.isArray(news)) {
-      const eventTasks = [];
-      const shoulderTasks = [];
-      news.forEach((item, idx) => {
-        const e = toEvent(item);
-        const key = `${e.direction}-${e.startKm ?? "na"}-${e.endKm ?? "na"}-${idx}`;
-        eventTasks.push(upsertEvent(key, e));
-        if (item.Title && item.Title.includes("路肩")) {
-          const s = {
-            roadId: item.RoadID || "NA",
-            startKm: parseKm(item.StartKM),
-            endKm: parseKm(item.EndKM),
-            direction: normDir(item.Direction),
-            timeRange: `${item.PublishTime} ~ ${item.UpdateTime}`,
-            source: "NEWS",
-          };
-          shoulderTasks.push(upsertShoulderOpen(item.NewsID, s));
-        }
+    // 3) 事件 → events
+    if (Array.isArray(incidents)) {
+      const eventTasks = incidents.map((raw) => {
+        const e = normalizeIncident(raw);
+        return upsertEvent(e.incidentid, e);
       });
-      await Promise.all([...eventTasks, ...shoulderTasks]);
+      await Promise.all(eventTasks);
       console.log(`✅ 事件標準化完成，共 ${eventTasks.length} 筆`);
-      console.log(`✅ 路肩開放上傳完成，共 ${shoulderTasks.length} 筆`);
     }
 
     // 4) liveTraffic → congestion 結構

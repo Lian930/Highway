@@ -105,7 +105,15 @@ async function getAccessToken() {
 // ---- 1968 API ----
 async function fetch1968Incidents() {
   const { data } = await axios.get(
-    "https://1968.freeway.gov.tw/api/getIncidentData?action=incident&area=A&freewayid=1&expresswayid=0"
+    "https://1968.freeway.gov.tw/api/getIncidentData?action=incident&area=A&freewayid=1&expresswayid=0",
+    {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://1968.freeway.gov.tw/"
+      },
+      timeout: 15000
+    }
   );
   return data.response || [];
 }

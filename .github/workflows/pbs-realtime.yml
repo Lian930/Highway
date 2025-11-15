@@ -1,0 +1,33 @@
+name: PBS RoadAll → Firebase (Realtime)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/2 * * * *" # 每 2 分鐘
+
+concurrency:
+  group: pbs-realtime
+  cancel-in-progress: true
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run crawler
+        env:
+          FIREBASE_SA_BASE64: ${{ secrets.FIREBASE_SA_BASE64 }}
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+          FIREBASE_NEWS_PATH: ${{ secrets.FIREBASE_NEWS_PATH }}
+          DRY_RUN: ${{ secrets.DRY_RUN }}
+        run: npm start

@@ -1,0 +1,30 @@
+name: PBS -> Firebase events
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "*/5 * * * *"  # 每 5 分鐘跑一次（UTC）
+
+jobs:
+  pbs_to_firebase:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+        # 如果你沒有 package-lock.json，就改成：
+        # run: npm install
+
+      - name: Run PBS fetcher
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+        run: npm run pbs:run

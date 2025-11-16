@@ -1,16 +1,12 @@
 {
-  "name": "highwaynotifier-crawler",
+  "name": "pbs-firebase-ingest",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
+  "main": "index.js",
   "scripts": {
-    "start": "node pbs_realtime.js"
+    "pbs:run": "node scripts/pbs_to_firebase.js"
   },
   "dependencies": {
-    "firebase-admin": "^12.6.0",
-    "object-hash": "^3.0.0",
-    "p-limit": "^5.0.0",
-    "undici": "^6.19.8",
-    "zod": "^3.23.8"
+    "axios": "^1.7.0",
+    "firebase-admin": "^12.0.0"
   }
 }

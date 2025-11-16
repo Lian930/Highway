@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "pbs:run": "node scripts/pbs_to_firebase.js"
+    "pbs:run": "node pbs_to_firebase.js"
   },
   "dependencies": {
     "axios": "^1.7.0",

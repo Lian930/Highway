@@ -7,7 +7,7 @@ on:
 
 jobs:
   pbs_to_firebase:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository

@@ -3,7 +3,7 @@ name: PBS -> Firebase events
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "*/5 * * * *"  # 每 5 分鐘跑一次（UTC）
+    - cron: "*/2 * * * *"  # 每 5 分鐘跑一次（UTC）
 
 jobs:
   pbs_to_firebase:

@@ -19,10 +19,13 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install        # 安裝 axios + firebase-admin
-
+        run: npm install
+        shell: cmd
+      
       - name: Run PBS fetcher
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
         run: npm run pbs:run
+        shell: cmd
+

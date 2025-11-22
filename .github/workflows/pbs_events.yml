@@ -1,13 +1,13 @@
 name: PBS -> Firebase events
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch: {}        # 手動按 Run workflow
   schedule:
-    - cron: "*/2 * * * *"  # 每 5 分鐘跑一次（UTC）
+    - cron: "*/5 * * * *"      # 每 5 分鐘（UTC）自動跑一次
 
 jobs:
   pbs_to_firebase:
-    runs-on: self-hosted
+    runs-on: self-hosted       # ★ 一定要 self-hosted，才會丟到你本機
 
     steps:
       - name: Checkout repository
@@ -19,9 +19,7 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install
-        # 如果你沒有 package-lock.json，就改成：
-        # run: npm install
+        run: npm install        # 安裝 axios + firebase-admin
 
       - name: Run PBS fetcher
         env:

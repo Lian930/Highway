@@ -1,7 +1,6 @@
 {
   "name": "pbs-firebase-ingest",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
     "pbs:run": "node pbs_to_firebase.js"
   },
